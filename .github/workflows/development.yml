@@ -75,7 +75,6 @@ jobs:
           # by JavaApp's source/target-8 launcher build.
           distribution: zulu
           java-version: '8'
-          cache: none
 
       - name: Build complete IPA and TrollStore TIPA
         shell: bash
