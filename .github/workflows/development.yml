@@ -1,0 +1,144 @@
+name: Amethyst iOS Metal build
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-ios:
+    name: Build full iOS IPA/TIPA
+    runs-on: macos-15
+    env:
+      # The hosted image currently carries Xcode 26.3.  The setup step below
+      # falls back to the image default if Apple changes the installed path.
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+      SLIMMED: "0"
+      RUNNER: "0"
+
+    steps:
+      - name: Checkout Amethyst
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Select Xcode and print toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! -d "$DEVELOPER_DIR" ]]; then
+            unset DEVELOPER_DIR
+            echo "DEVELOPER_DIR=$(xcode-select -p)" >> "$GITHUB_ENV"
+          fi
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+          xcrun --sdk iphoneos --show-sdk-path
+
+      - name: Install build tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          brew install ldid make wget
+          echo "PATH=$(brew --prefix)/bin:$PATH" >> "$GITHUB_ENV"
+          gmake --version | head -1
+          ldid -h >/dev/null 2>&1 || true
+
+      - name: Prepare and verify embedded MetalUniversal
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f Natives/resources/bundled_mods/metallum-1.0.1.jar
+          test -f Natives/resources/Frameworks/libmetallum.dylib
+          test -f Natives/resources/Frameworks/libspvc.dylib
+          test "$(shasum -a 256 Natives/resources/bundled_mods/metallum-1.0.1.jar | awk '{print $1}')" = "51b0ea18a36a20c6eb914aaee9961975c287af0a49409604fd146511f29d4b66"
+          test "$(shasum -a 256 Natives/resources/Frameworks/libmetallum.dylib | awk '{print $1}')" = "58e72e867c4ac97f9491178a6d282578b9a0be9ed732632648afa9ade4b94801"
+          test "$(shasum -a 256 Natives/resources/Frameworks/libspvc.dylib | awk '{print $1}')" = "4f52ead7de9895ca8fe859a390701dc1ce9d6766404b027776f142221d93cd36"
+          # PR #245's prebuilt iOS natives use build-directory install names.
+          # Normalize them to @rpath before Amethyst's payload signing pass.
+          for dir in Natives/resources/Frameworks/lwjgl33 Natives/resources/Frameworks/lwjgl34; do
+            for file in "$dir"/*.dylib; do
+              [[ -f "$file" ]] || continue
+              install_name_tool -id "@rpath/$(basename "$file")" "$file" || true
+            done
+          done
+          chmod 755 Natives/resources/Frameworks/*.dylib Natives/resources/Frameworks/lwjgl33/*.dylib Natives/resources/Frameworks/lwjgl34/*.dylib
+
+      - name: Install JDK 8 for launcher build
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '8'
+          cache: none
+
+      - name: Build complete IPA and TrollStore TIPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PATH="$(brew --prefix)/bin:$PATH"
+          export BOOTJDK="$JAVA_HOME/bin"
+          export SLIMMED=0
+          export RUNNER=0
+          export RELEASE=1
+          jobs="$(sysctl -n hw.logicalcpu)"
+          # Keep dsym and package in one serial make invocation.  Both goals
+          # share Payload; -j1 prevents dsymutil from racing the signing/zip
+          # recipe, while the Makefile's CMake/Java sub-builds still use the
+          # detected CPU count internally.
+          gmake -j1 BOOTJDK="$BOOTJDK" JOBS="$jobs" RELEASE=1 SLIMMED=0 RUNNER=0 dsym package PLATFORM=2
+
+          # Re-sign the already-built Payload executable with TrollStore
+          # entitlements and make the TIPA without rebuilding all native/JRE
+          # inputs a second time.
+          app="artifacts/Payload/AngelAuraAmethyst.app"
+          ldid -S "$app"
+          ldid -S"$PWD/entitlements.trollstore.xml" "$app/AngelAuraAmethyst"
+          (cd artifacts && zip --symlinks -r org.angelauramc.amethyst-1.0-ios-trollstore.tipa Payload)
+
+      - name: Validate IPA contents
+        shell: bash
+        run: |
+          set -euo pipefail
+          ipa="$(find artifacts -maxdepth 1 -type f -name 'org.angelauramc.amethyst-*-ios.ipa' | head -1)"
+          tipa="$(find artifacts -maxdepth 1 -type f -name 'org.angelauramc.amethyst-*-ios-trollstore.tipa' | head -1)"
+          [[ -n "$ipa" && -f "$ipa" ]]
+          [[ -n "$tipa" && -f "$tipa" ]]
+          for package in "$ipa" "$tipa"; do
+            echo "Checking $package"
+            unzip -l "$package" | grep -E 'Frameworks/libmetallum\.dylib|Frameworks/libspvc\.dylib|bundled_mods/metallum-1\.0\.1\.jar|libs/lwjgl-3\.4\.1/lwjgl-3\.4\.1\.jar|java_runtimes/java-25-openjdk/release'
+            jar_entry="$(unzip -Z1 "$package" | grep '/libs/lwjgl-3\.4\.1/lwjgl-3\.4\.1\.jar$' | head -1)"
+            [[ -n "$jar_entry" ]]
+            jar_tmp="$(mktemp)"
+            trap 'rm -f "$jar_tmp"' EXIT
+            unzip -p "$package" "$jar_entry" > "$jar_tmp"
+            unzip -l "$jar_tmp" | grep -q 'org/lwjgl/util/spvc/Spvc.class'
+            rm -f "$jar_tmp"
+            trap - EXIT
+          done
+
+      - name: Upload full IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: amethyst-metal-ios-ipa
+          path: artifacts/org.angelauramc.amethyst-*-ios.ipa
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload TrollStore TIPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: amethyst-metal-ios-tipa
+          path: artifacts/org.angelauramc.amethyst-*-ios-trollstore.tipa
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload dSYM
+        uses: actions/upload-artifact@v4
+        with:
+          name: amethyst-metal-ios-dsym
+          path: artifacts/AngelAuraAmethyst.dSYM
+          if-no-files-found: warn
+          retention-days: 30
