@@ -70,7 +70,10 @@ jobs:
       - name: Install JDK 8 for launcher build
         uses: actions/setup-java@v4
         with:
-          distribution: temurin
+          # Temurin stopped publishing a macOS Java 8 package to the hosted
+          # runner's toolcache.  Zulu still provides the Java 8 runtime needed
+          # by JavaApp's source/target-8 launcher build.
+          distribution: zulu
           java-version: '8'
           cache: none
 
