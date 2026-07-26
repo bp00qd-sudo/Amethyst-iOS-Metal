@@ -54,9 +54,9 @@ jobs:
           test -f Natives/resources/bundled_mods/metallum-1.0.1.jar
           test -f Natives/resources/Frameworks/libmetallum.dylib
           test -f Natives/resources/Frameworks/libspvc.dylib
-          test "$(shasum -a 256 Natives/resources/bundled_mods/metallum-1.0.1.jar | awk '{print $1}')" = "51b0ea18a36a20c6eb914aaee9961975c287af0a49409604fd146511f29d4b66"
+          test "$(shasum -a 256 Natives/resources/bundled_mods/metallum-1.0.1.jar | awk '{print $1}')" = "bcbdd9132f91b0ab3ef2fc3eb9823f88768ec585d2e29175bca911baf6f8e088"
           test "$(shasum -a 256 Natives/resources/Frameworks/libmetallum.dylib | awk '{print $1}')" = "58e72e867c4ac97f9491178a6d282578b9a0be9ed732632648afa9ade4b94801"
-          test "$(shasum -a 256 Natives/resources/Frameworks/libspvc.dylib | awk '{print $1}')" = "4f52ead7de9895ca8fe859a390701dc1ce9d6766404b027776f142221d93cd36"
+          test "$(shasum -a 256 Natives/resources/Frameworks/libspvc.dylib | awk '{print $1}')" = "dab2d24e5029fcfac12b7350f59b21ad1c15017976ad2a35e2cb82a5e5889bd1"
           # PR #245's prebuilt iOS natives use build-directory install names.
           # Normalize them to @rpath before Amethyst's payload signing pass.
           for dir in Natives/resources/Frameworks/lwjgl33 Natives/resources/Frameworks/lwjgl34; do
