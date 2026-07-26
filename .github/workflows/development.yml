@@ -71,7 +71,8 @@ jobs:
           exported_shaderc_symbols="$(mktemp)"
           unzip -p JavaApp/libs/lwjgl-3.4.1/lwjgl-shaderc.jar \
             'org/lwjgl/util/shaderc/Shaderc$Functions.class' > "$shaderc_class"
-          strings "$shaderc_class" | grep -oE 'shaderc_[A-Za-z0-9_]+' | sort -u > "$required_shaderc_symbols"
+          LC_ALL=C perl -0777 -ne 'while (/(shaderc_[A-Za-z0-9_]+)/g) { print "$1\n" }' \
+            "$shaderc_class" | sort -u > "$required_shaderc_symbols"
           xcrun nm -gU "$shaderc_dylib" | awk '{ print $NF }' | sed 's/^_//' | \
             grep '^shaderc_' | sort -u > "$exported_shaderc_symbols"
           test "$(wc -l < "$required_shaderc_symbols" | tr -d ' ')" = "45"
