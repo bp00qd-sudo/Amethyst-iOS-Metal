@@ -272,11 +272,24 @@ int launchJVM(NSString *username, id launchTarget, int width, int height, int mi
     margv[++margc] = [NSString stringWithFormat:@"-Xmx%dM", allocmem].UTF8String;
     NSString *lwjglNativesFolder = [lwjglFolder isEqualToString:@"lwjgl-3.4.1"] ? @"lwjgl34" : @"lwjgl33";
     // Put the selected LWJGL native set first.  The root Frameworks directory
-    // still contains shared natives such as OpenAL and shaderc, but no longer
-    // contains duplicate liblwjgl files.
+    // still contains shared natives such as OpenAL and the legacy Shaderc
+    // fallback, but no longer contains duplicate liblwjgl files.
     NSString *javaLibraryPath = [NSString stringWithFormat:@"%@/Frameworks/%@:%@/Frameworks",
         NSBundle.mainBundle.bundlePath, lwjglNativesFolder, NSBundle.mainBundle.bundlePath];
     margv[++margc] = [NSString stringWithFormat:@"-Djava.library.path=%@", javaLibraryPath].UTF8String;
+    if ([lwjglFolder isEqualToString:@"lwjgl-3.4.1"]) {
+        NSString *shadercPath = [NSBundle.mainBundle.bundlePath stringByAppendingPathComponent:@"Frameworks/lwjgl34/libshaderc.dylib"];
+        if ([fm fileExistsAtPath:shadercPath]) {
+            // LWJGL resolves every Shaderc C API entry point during class
+            // initialization. The version-scoped library matches the 3.4.1
+            // bindings and includes shaderc_compile_options_set_max_id_bound;
+            // use an absolute signed path so the legacy root dylib cannot win.
+            margv[++margc] = [NSString stringWithFormat:@"-Dorg.lwjgl.shaderc.libname=%@", shadercPath].UTF8String;
+            NSLog(@"[JavaLauncher] Using Shaderc from %@", shadercPath);
+        } else {
+            NSLog(@"[JavaLauncher] LWJGL 3.4.1 Shaderc library missing at %@", shadercPath);
+        }
+    }
     margv[++margc] = [NSString stringWithFormat:@"-Duser.dir=%@", gameDir].UTF8String;
     margv[++margc] = [NSString stringWithFormat:@"-Duser.home=%s", getenv("POJAV_HOME")].UTF8String;
     // Make the iOS host explicit: some Java 25 builds report "Mac OS X" on

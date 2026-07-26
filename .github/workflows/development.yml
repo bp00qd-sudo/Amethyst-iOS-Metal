@@ -54,9 +54,35 @@ jobs:
           test -f Natives/resources/bundled_mods/metallum-1.0.1.jar
           test -f Natives/resources/Frameworks/libmetallum.dylib
           test -f Natives/resources/Frameworks/libspvc.dylib
-          test "$(shasum -a 256 Natives/resources/bundled_mods/metallum-1.0.1.jar | awk '{print $1}')" = "bcbdd9132f91b0ab3ef2fc3eb9823f88768ec585d2e29175bca911baf6f8e088"
+          test -f Natives/resources/Frameworks/lwjgl34/libshaderc.dylib
+          test "$(shasum -a 256 Natives/resources/bundled_mods/metallum-1.0.1.jar | awk '{print $1}')" = "e4bf64024690b24142c4510a177cde9fde7c32e36024ac47d79d7e42af9cf752"
           test "$(shasum -a 256 Natives/resources/Frameworks/libmetallum.dylib | awk '{print $1}')" = "58e72e867c4ac97f9491178a6d282578b9a0be9ed732632648afa9ade4b94801"
-          test "$(shasum -a 256 Natives/resources/Frameworks/libspvc.dylib | awk '{print $1}')" = "dab2d24e5029fcfac12b7350f59b21ad1c15017976ad2a35e2cb82a5e5889bd1"
+          test "$(shasum -a 256 Natives/resources/Frameworks/libspvc.dylib | awk '{print $1}')" = "eb9ec5edaa868cbde38933c6628b496bcd4c7b717c14fe3b0f3026312dd0d860"
+          test "$(shasum -a 256 Natives/resources/Frameworks/lwjgl34/libshaderc.dylib | awk '{print $1}')" = "8b1c1348f0093b23f5f9572313c98f4762ef4b87245b25564d868136e09f9697"
+
+          shaderc_dylib="Natives/resources/Frameworks/lwjgl34/libshaderc.dylib"
+          test "$(xcrun lipo -archs "$shaderc_dylib")" = "arm64"
+          test "$(xcrun vtool -show-build "$shaderc_dylib" | awk '$1 == "platform" { print $2 }')" = "IOS"
+          test "$(xcrun vtool -show-build "$shaderc_dylib" | awk '$1 == "minos" { print $2 }')" = "14.0"
+          test "$(xcrun otool -D "$shaderc_dylib" | awk 'NR > 1 && NF { print $1 }')" = "@rpath/libshaderc.dylib"
+
+          shaderc_class="$(mktemp)"
+          required_shaderc_symbols="$(mktemp)"
+          exported_shaderc_symbols="$(mktemp)"
+          unzip -p JavaApp/libs/lwjgl-3.4.1/lwjgl-shaderc.jar \
+            'org/lwjgl/util/shaderc/Shaderc$Functions.class' > "$shaderc_class"
+          strings "$shaderc_class" | grep -oE 'shaderc_[A-Za-z0-9_]+' | sort -u > "$required_shaderc_symbols"
+          xcrun nm -gU "$shaderc_dylib" | awk '{ print $NF }' | sed 's/^_//' | \
+            grep '^shaderc_' | sort -u > "$exported_shaderc_symbols"
+          test "$(wc -l < "$required_shaderc_symbols" | tr -d ' ')" = "45"
+          missing_shaderc_symbols="$(comm -23 "$required_shaderc_symbols" "$exported_shaderc_symbols")"
+          if [[ -n "$missing_shaderc_symbols" ]]; then
+            echo "libshaderc.dylib is missing LWJGL 3.4.1 symbols:" >&2
+            echo "$missing_shaderc_symbols" >&2
+            exit 1
+          fi
+          grep -Fxq shaderc_compile_options_set_max_id_bound "$exported_shaderc_symbols"
+          rm -f "$shaderc_class" "$required_shaderc_symbols" "$exported_shaderc_symbols"
           # PR #245's prebuilt iOS natives use build-directory install names.
           # Normalize them to @rpath before Amethyst's payload signing pass.
           for dir in Natives/resources/Frameworks/lwjgl33 Natives/resources/Frameworks/lwjgl34; do
@@ -110,7 +136,7 @@ jobs:
           [[ -n "$tipa" && -f "$tipa" ]]
           for package in "$ipa" "$tipa"; do
             echo "Checking $package"
-            unzip -l "$package" | grep -E 'Frameworks/libmetallum\.dylib|Frameworks/libspvc\.dylib|bundled_mods/metallum-1\.0\.1\.jar|libs/lwjgl-3\.4\.1/lwjgl-3\.4\.1\.jar|java_runtimes/java-25-openjdk/release'
+            unzip -l "$package" | grep -E 'Frameworks/libmetallum\.dylib|Frameworks/libspvc\.dylib|Frameworks/lwjgl34/libshaderc\.dylib|bundled_mods/metallum-1\.0\.1\.jar|libs/lwjgl-3\.4\.1/lwjgl-3\.4\.1\.jar|java_runtimes/java-25-openjdk/release'
             jar_entry="$(unzip -Z1 "$package" | grep '/libs/lwjgl-3\.4\.1/lwjgl-3\.4\.1\.jar$' | head -1)"
             [[ -n "$jar_entry" ]]
             jar_tmp="$(mktemp)"

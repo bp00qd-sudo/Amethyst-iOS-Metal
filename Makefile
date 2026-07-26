@@ -351,6 +351,7 @@ payload: native dep_mg java jre assets
 	# its dylibs receive the same ad-hoc/signing treatment as Amethyst natives.
 	test -f $(WORKINGDIR)/AngelAuraAmethyst.app/Frameworks/libmetallum.dylib
 	test -f $(WORKINGDIR)/AngelAuraAmethyst.app/Frameworks/libspvc.dylib
+	test -f $(WORKINGDIR)/AngelAuraAmethyst.app/Frameworks/lwjgl34/libshaderc.dylib
 	test -f $(WORKINGDIR)/AngelAuraAmethyst.app/bundled_mods/metallum-1.0.1.jar
 	cp -R $(SOURCEDIR)/JavaApp/libs/others/* $(WORKINGDIR)/AngelAuraAmethyst.app/libs/ || exit 1
 	cp $(SOURCEDIR)/JavaApp/build/launcher.jar $(SOURCEDIR)/JavaApp/build/patchjna_agent.jar $(WORKINGDIR)/AngelAuraAmethyst.app/libs/ || exit 1
