@@ -19,7 +19,7 @@ jobs:
       DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
       SLIMMED: "0"
       RUNNER: "0"
-      METALUNIVERSAL_REPOSITORY: https://github.com/bp00qd-sudo/MetalUniversal-iOS.git
+      # Provenance for the checked-in jar/dylibs verified below.
       METALUNIVERSAL_COMMIT: f25d729701329dc826312747e98ed4c136c84b03
 
     steps:
@@ -49,50 +49,6 @@ jobs:
           gmake --version | head -1
           ldid -h >/dev/null 2>&1 || true
 
-      - name: Install JDK 25 for MetalUniversal
-        uses: actions/setup-java@v5
-        with:
-          distribution: microsoft
-          java-version: '25'
-
-      - name: Build and embed pinned MetalUniversal
-        shell: bash
-        run: |
-          set -euo pipefail
-          source_dir="${RUNNER_TEMP}/MetalUniversal"
-          git clone --filter=blob:none --no-checkout "$METALUNIVERSAL_REPOSITORY" "$source_dir"
-          git -C "$source_dir" checkout --detach "$METALUNIVERSAL_COMMIT"
-          test "$(git -C "$source_dir" rev-parse HEAD)" = "$METALUNIVERSAL_COMMIT"
-          chmod +x "$source_dir/gradlew"
-          (
-            cd "$source_dir"
-            ./gradlew buildIOSNative buildIOSSpvc buildIOSShaderc build --no-daemon
-          )
-
-          mapfile -t main_jars < <(find "$source_dir/build/libs" -maxdepth 1 -type f \
-            -name '*.jar' ! -name '*-dev.jar' ! -name '*-sources.jar' | sort)
-          if [[ "${#main_jars[@]}" -ne 1 ]]; then
-            echo "Expected one MetalUniversal main jar, found ${#main_jars[@]}" >&2
-            printf '%s\n' "${main_jars[@]}" >&2
-            exit 1
-          fi
-
-          install -m 0644 "${main_jars[0]}" \
-            Natives/resources/bundled_mods/metallum-1.0.1.jar
-          install -m 0755 "$source_dir/src/main/resources/natives/ios/libmetallum.dylib" \
-            Natives/resources/Frameworks/libmetallum.dylib
-          install -m 0755 "$source_dir/src/main/resources/natives/ios/libspvc.dylib" \
-            Natives/resources/Frameworks/libspvc.dylib
-          install -m 0755 "$source_dir/build/ios-artifacts/libshaderc.dylib" \
-            Natives/resources/Frameworks/lwjgl34/libshaderc.dylib
-
-          echo "Embedded MetalUniversal $METALUNIVERSAL_COMMIT"
-          shasum -a 256 \
-            Natives/resources/bundled_mods/metallum-1.0.1.jar \
-            Natives/resources/Frameworks/libmetallum.dylib \
-            Natives/resources/Frameworks/libspvc.dylib \
-            Natives/resources/Frameworks/lwjgl34/libshaderc.dylib
-
       - name: Prepare and verify embedded MetalUniversal
         shell: bash
         run: |
@@ -101,6 +57,17 @@ jobs:
           test -f Natives/resources/Frameworks/libmetallum.dylib
           test -f Natives/resources/Frameworks/libspvc.dylib
           test -f Natives/resources/Frameworks/lwjgl34/libshaderc.dylib
+          test "$(shasum -a 256 Natives/resources/bundled_mods/metallum-1.0.1.jar | awk '{print $1}')" = "7b5dacf01eda8ae78b0c8ef7eae6ee7a782eea136139afceafd20f3b1b7ab718"
+          test "$(shasum -a 256 Natives/resources/Frameworks/libmetallum.dylib | awk '{print $1}')" = "da885621d1930edaa908ad9faa9e453ee604fd9be7382f9b3b9b555da904937c"
+          test "$(shasum -a 256 Natives/resources/Frameworks/libspvc.dylib | awk '{print $1}')" = "cd687e8dcaa74835de84fffcb1c20611da143df25a349fd3e53b3b7b92ab291f"
+          test "$(shasum -a 256 Natives/resources/Frameworks/lwjgl34/libshaderc.dylib | awk '{print $1}')" = "8b1c1348f0093b23f5f9572313c98f4762ef4b87245b25564d868136e09f9697"
+
+          unzip -l Natives/resources/bundled_mods/metallum-1.0.1.jar | \
+            grep -q 'com/metallum/client/metal/framegraph/FrameGraphCompiler.class'
+          metal_symbols="$(xcrun nm -gU Natives/resources/Frameworks/libmetallum.dylib | awk '{ print $NF }')"
+          grep -Fxq '_metallum_get_interface' <<< "$metal_symbols"
+          grep -Fxq '_metallum_destroy_device_context' <<< "$metal_symbols"
+          grep -Fxq '_metallum_get_resource_counts' <<< "$metal_symbols"
           shaderc_dylib="Natives/resources/Frameworks/lwjgl34/libshaderc.dylib"
           test "$(xcrun lipo -archs "$shaderc_dylib")" = "arm64"
           test "$(xcrun vtool -show-build "$shaderc_dylib" | awk '$1 == "platform" { print $2 }')" = "IOS"
