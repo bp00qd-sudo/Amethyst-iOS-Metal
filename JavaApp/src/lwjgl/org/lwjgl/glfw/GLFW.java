@@ -539,13 +539,10 @@ public class GLFW
 
         // Do not allocate an LWJGL callback from this static initializer.
         //
-        // Loading AngelAuraAmethyst above invokes its JNI_OnLoad, which looks
-        // this class up and reads keyDownBuffer while GLFW initialization is
-        // still in progress. On Minecraft 26.2, liblwjgl is itself being
-        // loaded by NativeLibrariesBootstrap at this point, so its LibFFI JNI
-        // methods are not registered yet. Calling createPrint() here therefore
-        // throws UnsatisfiedLinkError and leaves a pending exception in the
-        // re-entrant JNI_OnLoad path; Java 25 may then crash in GetMethodID.
+        // On Minecraft 26.2, liblwjgl is itself being loaded by
+        // NativeLibrariesBootstrap at this point, so its LibFFI JNI methods
+        // are not registered yet. Calling createPrint() here therefore throws
+        // UnsatisfiedLinkError.
         // Game-installed callbacks are created later, after liblwjgl finishes
         // loading, and are unaffected by leaving the initial callback unset.
         mGLFWErrorCallback = null;
@@ -589,6 +586,7 @@ public class GLFW
     private static native long nglfwSetWindowSizeCallback(long window, long ptr);
     // private static native void nglfwSetInputReady();
     private static native void nglfwSetShowingWindow(long window);
+    private static native void nglfwInitializeBridge();
 
     /*
      private static void priGlfwSetError(int error) {
@@ -834,6 +832,11 @@ public class GLFW
     static boolean isGLFWReady;
     public static boolean glfwInit() {
         if (!isGLFWReady) {
+            // GLFW class initialization is now complete. Register the native
+            // input bridge here instead of from AngelAuraAmethyst's JNI_OnLoad,
+            // where Java 25 can crash if GetStaticMethodID is used on this
+            // still-initializing class.
+            nglfwInitializeBridge();
             mGLFWInitialTime = (double) System.nanoTime();
             long __functionAddress = Functions.Init;
             boolean isCalledFromLWJGLX = new Throwable().getStackTrace()[1].getClassName().equals("org.lwjgl.Sys");

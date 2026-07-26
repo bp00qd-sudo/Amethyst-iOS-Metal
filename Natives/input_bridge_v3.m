@@ -208,13 +208,21 @@ void registerOpenHandler(JNIEnv *env) {
     (*env)->RegisterNatives(env, cls, peerOpenMethods, 2);
 }
 
-// JNI_OnLoad
-void JNI_OnLoadGLFW() {
-    vmGlfwClass = (*runtimeJNIEnvPtr)->NewGlobalRef(runtimeJNIEnvPtr, (*runtimeJNIEnvPtr)->FindClass(runtimeJNIEnvPtr, "org/lwjgl/glfw/GLFW"));
-    method_internalWindowSizeChanged = (*runtimeJNIEnvPtr)->GetStaticMethodID(runtimeJNIEnvPtr, vmGlfwClass, "internalWindowSizeChanged", "(JII)V");
-    jfieldID field_keyDownBuffer = (*runtimeJNIEnvPtr)->GetStaticFieldID(runtimeJNIEnvPtr, vmGlfwClass, "keyDownBuffer", "Ljava/nio/ByteBuffer;");
-    jobject keyDownBufferJ = (*runtimeJNIEnvPtr)->GetStaticObjectField(runtimeJNIEnvPtr, vmGlfwClass, field_keyDownBuffer);
-    keyDownBuffer = (*runtimeJNIEnvPtr)->GetDirectBufferAddress(runtimeJNIEnvPtr, keyDownBufferJ);
+// Register the GLFW bridge only after GLFW.<clinit> has completed. Minecraft
+// 26.2 loads liblwjgl while GLFW is initializing; looking the class up and
+// calling GetStaticMethodID from this executable's JNI_OnLoad re-enters that
+// initialization and crashes Java 25 in get_method_id().
+JNIEXPORT void JNICALL Java_org_lwjgl_glfw_GLFW_nglfwInitializeBridge(JNIEnv *env, jclass glfwClass) {
+    runtimeJNIEnvPtr = env;
+    if (vmGlfwClass || getenv("POJAV_SKIP_JNI_GLFW")) {
+        return;
+    }
+
+    vmGlfwClass = (*env)->NewGlobalRef(env, glfwClass);
+    method_internalWindowSizeChanged = (*env)->GetStaticMethodID(env, vmGlfwClass, "internalWindowSizeChanged", "(JII)V");
+    jfieldID field_keyDownBuffer = (*env)->GetStaticFieldID(env, vmGlfwClass, "keyDownBuffer", "Ljava/nio/ByteBuffer;");
+    jobject keyDownBufferJ = (*env)->GetStaticObjectField(env, vmGlfwClass, field_keyDownBuffer);
+    keyDownBuffer = (*env)->GetDirectBufferAddress(env, keyDownBufferJ);
 }
 
 jint JNI_OnLoad(JavaVM* vm, void* reserved) {
@@ -223,10 +231,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
     JNIEnv *env;
     (*runtimeJavaVMPtr)->GetEnv(runtimeJavaVMPtr, (void **)&env, JNI_VERSION_1_4);
     registerOpenHandler(env);
-    if (!getenv("POJAV_SKIP_JNI_GLFW")) {
-        runtimeJNIEnvPtr = env;
-        JNI_OnLoadGLFW();
-    }
+    runtimeJNIEnvPtr = env;
 
     return JNI_VERSION_1_4;
 }
@@ -259,7 +264,9 @@ ADD_CALLBACK_WWIN(WindowSize)
 void handleFramebufferSizeJava(void* window, int w, int h) {
     if(GLFW_invoke_CursorEnter)GLFW_invoke_CursorEnter(window, 1);
     if(GLFW_invoke_WindowPos)GLFW_invoke_WindowPos(window, 0, 0);
-    (*runtimeJNIEnvPtr)->CallStaticVoidMethod(runtimeJNIEnvPtr, vmGlfwClass, method_internalWindowSizeChanged, (long)window, w, h);
+    if (runtimeJNIEnvPtr && vmGlfwClass && method_internalWindowSizeChanged) {
+        (*runtimeJNIEnvPtr)->CallStaticVoidMethod(runtimeJNIEnvPtr, vmGlfwClass, method_internalWindowSizeChanged, (long)window, w, h);
+    }
 }
 
 void pojavPumpEvents(void* window) {
