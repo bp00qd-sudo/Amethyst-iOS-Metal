@@ -537,14 +537,18 @@ public class GLFW
         // CallbackBridge.receiveCallback(CallbackBridge.EVENT_TYPE_FRAMEBUFFER_SIZE, mGLFWWindowWidth, mGLFWWindowHeight, 0, 0);
         // CallbackBridge.receiveCallback(CallbackBridge.EVENT_TYPE_WINDOW_SIZE, mGLFWWindowWidth, mGLFWWindowHeight, 0, 0);
 
-        try {
-            mGLFWErrorCallback = GLFWErrorCallback.createPrint();
-        } catch (Throwable t) {
-            // GLFWErrorCallback.createPrint() creates a LWJGL native Callback,
-            // Which needs libffi and that isnt included
-            t.printStackTrace();
-            mGLFWErrorCallback = null;
-        }
+        // Do not allocate an LWJGL callback from this static initializer.
+        //
+        // Loading AngelAuraAmethyst above invokes its JNI_OnLoad, which looks
+        // this class up and reads keyDownBuffer while GLFW initialization is
+        // still in progress. On Minecraft 26.2, liblwjgl is itself being
+        // loaded by NativeLibrariesBootstrap at this point, so its LibFFI JNI
+        // methods are not registered yet. Calling createPrint() here therefore
+        // throws UnsatisfiedLinkError and leaves a pending exception in the
+        // re-entrant JNI_OnLoad path; Java 25 may then crash in GetMethodID.
+        // Game-installed callbacks are created later, after liblwjgl finishes
+        // loading, and are unaffected by leaving the initial callback unset.
+        mGLFWErrorCallback = null;
         mGLFWKeyCodes = new ArrayMap<>();
 
         mGLFWWindowMap = new ArrayMap<>();
