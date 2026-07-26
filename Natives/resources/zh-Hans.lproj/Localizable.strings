@@ -178,6 +178,8 @@
 "preference.detail.resolution" = "降低分辨率可能会提升FPS。默认分辨率为屏幕的分辨率";
 "preference.title.max_framerate" = "最大帧率";
 "preference.detail.max_framerate" = "允许您在 ProMotion 显示器上将游戏帧率限制为 60FPS。";
+"preference.title.metalfx" = "MetalFX 空间升频";
+"preference.detail.metalfx" = "用于 MetalUniversal：请将“分辨率缩放 (%)”设为低于 100，MetalFX 会将低分辨率画面升频至屏幕原生分辨率。更改后请重新启动游戏。";
 
 "preference.title.fullscreen_airplay" = "全屏 AirPlay";
 "preference.detail.fullscreen_airplay" = "允许在外部显示器上全屏显示游戏，而不是直接镜像显示。";

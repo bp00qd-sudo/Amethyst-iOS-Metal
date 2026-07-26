@@ -109,6 +109,8 @@
 	<true/>
 	<key>GCSupportsGameMode</key>
 	<true/>
+	<key>LSSupportsGameMode</key>
+	<true/>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.games</string>
 	<key>LSApplicationQueriesSchemes</key>

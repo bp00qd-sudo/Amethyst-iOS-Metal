@@ -147,6 +147,8 @@
 
 "preference.title.resolution" = "解像度（%）";
 "preference.detail.resolution" = "允許你降低遊戲的解像度。";
+"preference.title.metalfx" = "MetalFX 空間升頻";
+"preference.detail.metalfx" = "用於 MetalUniversal：請將「解像度（%）」設為低於 100，MetalFX 會將低解像度畫面升頻至螢幕原生解像度。更改後請重新啟動遊戲。";
 
 "preference.title.fullscreen_airplay" = "全螢幕隔空投放";
 "preference.detail.fullscreen_airplay" = "允許在外部顯示器上展示全螢幕遊戲畫面，而不是影射螢幕上的內容。";

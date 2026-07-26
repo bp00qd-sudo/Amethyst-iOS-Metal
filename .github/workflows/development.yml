@@ -55,9 +55,9 @@ jobs:
           test -f Natives/resources/Frameworks/libmetallum.dylib
           test -f Natives/resources/Frameworks/libspvc.dylib
           test -f Natives/resources/Frameworks/lwjgl34/libshaderc.dylib
-          test "$(shasum -a 256 Natives/resources/bundled_mods/metallum-1.0.1.jar | awk '{print $1}')" = "e4bf64024690b24142c4510a177cde9fde7c32e36024ac47d79d7e42af9cf752"
-          test "$(shasum -a 256 Natives/resources/Frameworks/libmetallum.dylib | awk '{print $1}')" = "58e72e867c4ac97f9491178a6d282578b9a0be9ed732632648afa9ade4b94801"
-          test "$(shasum -a 256 Natives/resources/Frameworks/libspvc.dylib | awk '{print $1}')" = "eb9ec5edaa868cbde38933c6628b496bcd4c7b717c14fe3b0f3026312dd0d860"
+          test "$(shasum -a 256 Natives/resources/bundled_mods/metallum-1.0.1.jar | awk '{print $1}')" = "6121f68ce2a140303c9a3efd1c3581e4097980fad8ba9dffae96f6a78ea0975e"
+          test "$(shasum -a 256 Natives/resources/Frameworks/libmetallum.dylib | awk '{print $1}')" = "722f9c0d3e8aca17a6dfc24cf1edef72967cf1fb85a5ea7a235bce979595c7b0"
+          test "$(shasum -a 256 Natives/resources/Frameworks/libspvc.dylib | awk '{print $1}')" = "77a482d18f6c0c77edee95cde9e9c6a6be5dd738cb95f71612f3fcef3d547c3b"
           test "$(shasum -a 256 Natives/resources/Frameworks/lwjgl34/libshaderc.dylib | awk '{print $1}')" = "8b1c1348f0093b23f5f9572313c98f4762ef4b87245b25564d868136e09f9697"
 
           shaderc_dylib="Natives/resources/Frameworks/lwjgl34/libshaderc.dylib"
@@ -83,6 +83,10 @@ jobs:
             exit 1
           fi
           grep -Fxq shaderc_compile_options_set_max_id_bound "$exported_shaderc_symbols"
+          metal_dependencies="$(xcrun otool -L Natives/resources/Frameworks/libmetallum.dylib)"
+          grep -Fq '/System/Library/Frameworks/MetalFX.framework/MetalFX' <<< "$metal_dependencies"
+          metal_strings="$(strings Natives/resources/Frameworks/libmetallum.dylib)"
+          grep -Fq 'METALLUM_METALFX_ENABLED' <<< "$metal_strings"
           rm -f "$shaderc_class" "$required_shaderc_symbols" "$exported_shaderc_symbols"
           # PR #245's prebuilt iOS natives use build-directory install names.
           # Normalize them to @rpath before Amethyst's payload signing pass.

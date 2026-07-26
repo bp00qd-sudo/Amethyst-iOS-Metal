@@ -201,6 +201,13 @@ int launchJVM(NSString *username, id launchTarget, int width, int height, int mi
         NSLog(@"[JavaLauncher] Using LWJGL from %@; MetalUniversal %@", lwjglFolder,
               enableMetalUniversal ? @"enabled" : @"disabled");
 
+        BOOL metalFXEnabled = enableMetalUniversal && getPrefBool(@"video.metalfx");
+        setenv("METALLUM_METALFX_ENABLED", metalFXEnabled ? "1" : "0", 1);
+        setenv("METALLUM_METALFX_OUTPUT_WIDTH", @(physicalWidth).stringValue.UTF8String, 1);
+        setenv("METALLUM_METALFX_OUTPUT_HEIGHT", @(physicalHeight).stringValue.UTF8String, 1);
+        NSLog(@"[JavaLauncher] MetalFX spatial upscaling %@ (render %dx%d, output %dx%d)",
+              metalFXEnabled ? @"enabled" : @"disabled", width, height, physicalWidth, physicalHeight);
+
         // Setup POJAV_RENDERER
         NSString *renderer = [PLProfiles resolveKeyForCurrentProfile:@"renderer"];
         NSLog(@"[JavaLauncher] RENDERER is set to %@\n", renderer);

@@ -179,6 +179,12 @@
                   return whenNotInGame() && (UIScreen.mainScreen.maximumFramesPerSecond > 60);
               }
             },
+            @{@"key": @"metalfx",
+              @"hasDetail": @YES,
+              @"icon": @"sparkles",
+              @"type": self.typeSwitch,
+              @"enableCondition": whenNotInGame
+            },
             @{@"key": @"performance_hud",
               @"hasDetail": @YES,
               @"icon": @"waveform.path.ecg",

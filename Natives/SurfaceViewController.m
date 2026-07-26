@@ -387,6 +387,11 @@ static GameSurfaceView* pojavWindow;
     if ((windowHeight % 2) != 0) {
         --windowHeight;
     }
+    const char *metalFXEnabled = getenv("METALLUM_METALFX_ENABLED");
+    if (metalFXEnabled && metalFXEnabled[0] == '1' && metalFXEnabled[1] == '\0') {
+        setenv("METALLUM_METALFX_OUTPUT_WIDTH", @(physicalWidth).stringValue.UTF8String, 1);
+        setenv("METALLUM_METALFX_OUTPUT_HEIGHT", @(physicalHeight).stringValue.UTF8String, 1);
+    }
     CallbackBridge_nativeSendScreenSize(windowWidth, windowHeight);
 }
 
