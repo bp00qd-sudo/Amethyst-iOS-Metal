@@ -20,7 +20,7 @@ jobs:
       SLIMMED: "0"
       RUNNER: "0"
       # Provenance for the checked-in jar/dylibs verified below.
-      METALUNIVERSAL_COMMIT: f25d729701329dc826312747e98ed4c136c84b03
+      METALUNIVERSAL_COMMIT: 257cf763c0d2caa9662b0c062ddca935ed985ee6
 
     steps:
       - name: Checkout Amethyst
@@ -57,17 +57,24 @@ jobs:
           test -f Natives/resources/Frameworks/libmetallum.dylib
           test -f Natives/resources/Frameworks/libspvc.dylib
           test -f Natives/resources/Frameworks/lwjgl34/libshaderc.dylib
-          test "$(shasum -a 256 Natives/resources/bundled_mods/metallum-1.0.1.jar | awk '{print $1}')" = "7b5dacf01eda8ae78b0c8ef7eae6ee7a782eea136139afceafd20f3b1b7ab718"
-          test "$(shasum -a 256 Natives/resources/Frameworks/libmetallum.dylib | awk '{print $1}')" = "da885621d1930edaa908ad9faa9e453ee604fd9be7382f9b3b9b555da904937c"
-          test "$(shasum -a 256 Natives/resources/Frameworks/libspvc.dylib | awk '{print $1}')" = "cd687e8dcaa74835de84fffcb1c20611da143df25a349fd3e53b3b7b92ab291f"
+          test "$(shasum -a 256 Natives/resources/bundled_mods/metallum-1.0.1.jar | awk '{print $1}')" = "b12659c273a4665ef504926396cca6ec97be9912eb963b01514a23f4715a905d"
+          test "$(shasum -a 256 Natives/resources/Frameworks/libmetallum.dylib | awk '{print $1}')" = "45513b8b0693addedb45e55e3d5bb13e2876b2c96384fb7552e066584a2ff8ba"
+          test "$(shasum -a 256 Natives/resources/Frameworks/libspvc.dylib | awk '{print $1}')" = "9fc394cd44870c885fa8cc589c8802cf3d1325618f3c9dd85c1d4503f7a99e69"
           test "$(shasum -a 256 Natives/resources/Frameworks/lwjgl34/libshaderc.dylib | awk '{print $1}')" = "8b1c1348f0093b23f5f9572313c98f4762ef4b87245b25564d868136e09f9697"
 
           unzip -l Natives/resources/bundled_mods/metallum-1.0.1.jar | \
             grep -q 'com/metallum/client/metal/framegraph/FrameGraphCompiler.class'
+          unzip -l Natives/resources/bundled_mods/metallum-1.0.1.jar | \
+            grep -q 'com/metallum/client/metal/framegraph/SurfaceFramePipeline.class'
+          unzip -l Natives/resources/bundled_mods/metallum-1.0.1.jar | \
+            grep -q 'com/metallum/mixin/render/GuiRendererMixin.class'
           metal_symbols="$(xcrun nm -gU Natives/resources/Frameworks/libmetallum.dylib | awk '{ print $NF }')"
           grep -Fxq '_metallum_get_interface' <<< "$metal_symbols"
           grep -Fxq '_metallum_destroy_device_context' <<< "$metal_symbols"
           grep -Fxq '_metallum_get_resource_counts' <<< "$metal_symbols"
+          grep -Fxq '_metallum_layer_drawable_width' <<< "$metal_symbols"
+          grep -Fxq '_metallum_layer_drawable_height' <<< "$metal_symbols"
+          grep -Fxq '_metallum_metal4_present_with_ui' <<< "$metal_symbols"
           shaderc_dylib="Natives/resources/Frameworks/lwjgl34/libshaderc.dylib"
           test "$(xcrun lipo -archs "$shaderc_dylib")" = "arm64"
           test "$(xcrun vtool -show-build "$shaderc_dylib" | awk '$1 == "platform" { print $2 }')" = "IOS"
